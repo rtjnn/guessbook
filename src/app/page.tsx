@@ -1,103 +1,211 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import supabase from "@/lib/db";
+import { Iguess } from "./types/guess";
+import BarcodeScanner from "@/components/qr/qr";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [inputCode, setInputCode] = useState("");
+  const [guestData, setGuestData] = useState<Iguess[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [scanMode, setScanMode] = useState(true);
+  const [scannerKey, setScannerKey] = useState(0);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+  const fetchGuestByCode = async (code: string) => {
+    setLoading(true);
+    setErrorMsg("");
+    setGuestData([]);
+
+    if (!code.trim()) {
+      setErrorMsg("Kode tidak boleh kosong.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("data_tamu")
+        .select("*")
+        .eq("telp", code);
+
+      if (error) {
+        console.error("Supabase error:", error.message);
+        setErrorMsg("Gagal mengambil data dari Supabase.");
+      } else if (!data || data.length === 0) {
+        setErrorMsg("Data tidak ditemukan.");
+      } else {
+        setGuestData(data);
+        setScanMode(false); // Nonaktifkan scanner
+      }
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      setErrorMsg("Terjadi kesalahan tak terduga.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchGuestByCode(inputCode);
+  };
+
+  const handleScanResult = (scannedText: string) => {
+    setInputCode(scannedText);
+    fetchGuestByCode(scannedText);
+  };
+
+  const handleClear = () => {
+    setInputCode("");
+    setGuestData([]);
+    setErrorMsg("");
+    setScanMode(true);
+    setScannerKey((prev) => prev + 1);
+  };
+
+  const handleMarkAsTaken = async (telp: string) => {
+    if (!telp.trim()) {
+      alert("Nomor telepon tidak valid.");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("data_tamu")
+        .update({ state: "1" })
+        .eq("telp", telp);
+
+      if (error) {
+        console.error("Update error:", error.message);
+        alert("Gagal menandai sebagai sudah ambil.");
+      } else {
+        const { data } = await supabase
+          .from("data_tamu")
+          .select("*")
+          .eq("telp", telp);
+        setGuestData(data || []);
+      }
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      alert("Terjadi kesalahan saat update.");
+    }
+  };
+
+  return (
+    <div className="container py-10 px-4 max-w-lg mx-auto">
+      <div className="bg-white shadow-lg rounded-xl p-6 space-y-6 border border-gray-200">
+        <h1 className="text-2xl font-bold text-center text-gray-800">
+          Cek Data Tamu
+        </h1>
+
+        {/* Form Input */}
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-col sm:flex-row items-stretch gap-3"
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+          <Input
+            type="text"
+            placeholder="Masukkan nomor telepon"
+            value={inputCode}
+            onChange={(e) => {
+              setInputCode(e.target.value);
+              // Jangan ubah scanMode di sini
+            }}
+            className="flex-1"
           />
-          Learn
-        </a>
+          <Button type="submit" disabled={loading} className="sm:w-auto w-full">
+            {loading ? "Mencari..." : "Cari"}
+          </Button>
+        </form>
+
+        {/* QR Scanner */}
+        {scanMode && (
+          <div className="flex justify-center mt-4">
+            <BarcodeScanner key={scannerKey} onScan={handleScanResult} />
+          </div>
+        )}
+
+        {/* Error Message */}
+        {errorMsg && (
+          <div className="text-red-600 bg-red-100 border border-red-300 rounded-md p-3 text-sm">
+            {errorMsg}
+          </div>
+        )}
+
+        {/* Guest Data */}
+        {guestData.length > 0 && (
+          <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
+            <h2 className="font-semibold text-gray-700 text-lg mb-2 border-b pb-1">
+              Data Tamu:
+            </h2>
+            <ul className="space-y-3">
+              {guestData.map((item, index) => (
+                <li key={index} className="text-gray-800 border-b pb-3">
+                  <p>
+                    <span className="font-medium">Nama:</span> {item.name}
+                  </p>
+                  <p>
+                    <span className="font-medium">Telp:</span> {item.telp}
+                  </p>
+                  <p>
+                    <span className="font-medium">Tipe:</span> {item.type}
+                  </p>
+                  <p>
+                    <span className="font-medium">Status:</span>{" "}
+                    <span
+                      className={
+                        item.state === "1"
+                          ? "text-green-600"
+                          : "text-yellow-600"
+                      }
+                    >
+                      {item.state === "1" ? "Sudah Ambil" : "Belum Ambil"}
+                    </span>
+                  </p>
+
+                  {/* Tombol Ambil */}
+                  {item.state !== "1" && (
+                    <div className="mt-2">
+                      <Button
+                        variant="default"
+                        onClick={() => handleMarkAsTaken(item.telp)}
+                        size="sm"
+                      >
+                        Tandai Sudah Ambil
+                      </Button>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Clear Button */}
+        {(guestData.length > 0 || errorMsg) && (
+          <div className="flex justify-end">
+            <Button variant="secondary" onClick={handleClear}>
+              Clear & Scan Lagi
+            </Button>
+          </div>
+        )}
+      </div>
+      <div className="container">
         <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+          href="/admin"
+          className="block w-full text-center bg-indigo-500 text-white font-medium py-2 px-4 rounded-md hover:bg-indigo-600 transition duration-200 mt-6"
         >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
+          Admin
         </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+        <p className="text-center text-sm text-gray-500 mt-6">
+          made with ❤️ 2025
+        </p>
+      </div>
     </div>
   );
 }
