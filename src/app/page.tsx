@@ -4,12 +4,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import supabase from "@/lib/db";
-import { Iguess } from "./types/guess";
+
 import BarcodeScanner from "@/components/qr/qr";
+import { Iguess } from "./types/guess";
 
 export default function Home() {
   const [inputCode, setInputCode] = useState("");
-  const [guestData, setGuestData] = useState<Iguess[]>([]);
+  const [guestData, setGuestData] = useState<Iguess []>([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [scanMode, setScanMode] = useState(true);
