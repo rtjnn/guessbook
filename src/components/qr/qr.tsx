@@ -1,19 +1,23 @@
 "use client";
 
 import { Html5QrcodeScanner } from "html5-qrcode";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 interface Props {
   onScan: (text: string) => void;
+  active: boolean;
 }
 
-export default function BarcodeScanner({ onScan }: Props) {
-  const [isScannerReady, setIsScannerReady] = useState(false);
+export default function BarcodeScanner({ onScan, active }: Props) {
   const hasStartedRef = useRef(false);
 
   useEffect(() => {
-    if (isScannerReady && !hasStartedRef.current) {
+    if (active && !hasStartedRef.current) {
+      const element = document.getElementById("reader");
+      if (!element) return;
+
       hasStartedRef.current = true;
+
       const scanner = new Html5QrcodeScanner(
         "reader",
         {
@@ -36,24 +40,11 @@ export default function BarcodeScanner({ onScan }: Props) {
         scanner.clear().catch(() => {});
       };
     }
-  }, [isScannerReady, onScan]);
-
-  // Tunggu sampai elemen div dirender
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (document.getElementById("reader")) {
-        setIsScannerReady(true);
-        clearInterval(interval);
-      }
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, []);
+  }, [active, onScan]);
 
   return (
     <div className="w-full max-w-[320px] mx-auto relative">
       <div id="reader" className="rounded-md overflow-hidden shadow-md" />
-      
     </div>
   );
 }

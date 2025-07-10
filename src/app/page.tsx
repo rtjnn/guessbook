@@ -7,10 +7,11 @@ import supabase from "@/lib/db";
 
 import BarcodeScanner from "@/components/qr/qr";
 import { Iguess } from "./types/guess";
+import Link from "next/link";
 
 export default function Home() {
   const [inputCode, setInputCode] = useState("");
-  const [guestData, setGuestData] = useState<Iguess []>([]);
+  const [guestData, setGuestData] = useState<Iguess[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [scanMode, setScanMode] = useState(true);
@@ -126,7 +127,11 @@ export default function Home() {
         {/* QR Scanner */}
         {scanMode && (
           <div className="flex justify-center mt-4">
-            <BarcodeScanner key={scannerKey} onScan={handleScanResult} />
+            <BarcodeScanner
+              key={scannerKey}
+              active={scanMode} // <-- kontrol eksplisit
+              onScan={handleScanResult}
+            />
           </div>
         )}
 
@@ -189,8 +194,11 @@ export default function Home() {
         {/* Clear Button */}
         {(guestData.length > 0 || errorMsg) && (
           <div className="flex justify-end">
+            <Button variant="secondary" className="">
+              <Link href="/">Clear</Link>
+            </Button>
             <Button variant="secondary" onClick={handleClear}>
-              Clear & Scan Lagi
+              Scan Lagi
             </Button>
           </div>
         )}
